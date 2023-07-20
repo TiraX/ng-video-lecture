@@ -77,63 +77,79 @@ def dis(pos1, pos2):
     v.append(pos1[2] - pos2[2])
     return (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) ** 0.5
 
-def sort_pts(start_index, depth):
-    if start_index in sorted_dict:
-        return
-    
-    nbs_to_try = {}
+def sort_pts(start_index):
+
+    count = 0
     selected = start_index
-    while selected >= 0:
-        # mark self is selected
-        sorted_pts.append(selected)
-        sorted_dict[selected] = 1
-        print(f'{selected}, {depth} ', end='\n', flush=True)
-        
+    while selected >= 0:        
         nbs = get_neibors(selected)
 
         pt_pos = vertices[selected]
         nbs_live = []
-        nbs_dis = []
+        nbs_y = []
         for nb in nbs:
             if nb in sorted_dict:
                 continue
 
             nb_pos = vertices[nb]
-            d = dis(pt_pos, nb_pos)
-            nbs_dis.append(d)
+            # d = dis(pt_pos, nb_pos)
+            nbs_y.append(nb_pos[1])
             nbs_live.append(nb)
             
         if len(nbs_live) == 0:
             break
 
         nbs_live = np.array(nbs_live)
-        nbs_dis = np.array(nbs_dis)
+        nbs_y = np.array(nbs_y)
 
-        sort_idx = np.argsort(nbs_dis)
+        sort_idx = np.argsort(nbs_y)
         nbs_live_sorted = np.take(nbs_live, sort_idx)
-        nbs_dis_sorted = np.take(nbs_dis, sort_idx)
+        # nbs_y_sorted = np.take(nbs_y, sort_idx)
 
         selected = nbs_live_sorted[0]
-        if len(nbs_dis_sorted) > 1:
-            if abs(nbs_dis_sorted[1] - nbs_dis_sorted[0]) < eps:
-                nb_pos0 = vertices[nbs_live_sorted[0]]
-                nb_pos1 = vertices[nbs_live_sorted[1]]
-                selected = nbs_live_sorted[0] if nb_pos0[1] <= nb_pos1[1] else nbs_live_sorted[1]
-        
-        for nb in nbs_live_sorted:
-            if nb != selected:
-                nbs_to_try[nb] = 1
-
-    for nb, _ in nbs_to_try.items():
-        sort_pts(nb, depth + 1)
+        # if len(nbs_dis_sorted) > 1:
+        #     if abs(nbs_dis_sorted[1] - nbs_dis_sorted[0]) < eps:
+        #         nb_pos0 = vertices[nbs_live_sorted[0]]
+        #         nb_pos1 = vertices[nbs_live_sorted[1]]
+        #         selected = nbs_live_sorted[0] if nb_pos0[1] <= nb_pos1[1] else nbs_live_sorted[1]
+        # mark self is selected
+        sorted_pts.append(selected)
+        sorted_dict[selected] = 1
+        count += 1
+        # print(f'{selected}', end=' ', flush=True)
+        # if count % 64 == 0:
+        #     print('\n', flush=True)
+                
+    return count
             
 
 # %%
-sort_pts(0, 0)
+
+sorted_pts.append(0)
+sorted_dict[0] = 1
+
+num_sorted = 0
+start_from = 0
+offset = -1
+interval = 0
+v_limit = 970000    # num_vertices, early quit to debug
+while num_sorted < v_limit:
+    just_sorted = sort_pts(start_from)
+    if just_sorted == 0:
+        start_from = sorted_pts[offset]
+        offset -= 1
+    else:
+        offset = -1
+    num_sorted += just_sorted
+    interval += 1
+    if interval % 1000 == 0:
+        print(f'{num_sorted}', end=' ', flush=True)
+    if interval % 64000 == 0:
+        print('\n')
 
 
 # %%
-with open('$HIP/outputs.bin', 'wb') as f:
+with open('outputs.bin', 'wb') as f:
     f.write(struct.pack('i', len(sorted_pts))) 
     for pt in sorted_pts:
         f.write(struct.pack('i', pt))
